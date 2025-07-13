@@ -1,0 +1,76 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: interview-simulation-system
+  
+  # 数据库配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/interview_system?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # JPA配置
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+  
+  # 数据库配置（如果需要）
+  # datasource:
+  #   url: jdbc:mysql://localhost:3306/interview_db
+  #   username: root
+  #   password: password
+  #   driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # JPA配置（如果需要）
+  # jpa:
+  #   hibernate:
+  #     ddl-auto: update
+  #   show-sql: true
+  
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+# 日志配置
+logging:
+  level:
+    com.interview: DEBUG
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# 跨域配置
+cors:
+  allowed-origins: "*"
+  allowed-methods: "GET,POST,PUT,DELETE,OPTIONS"
+  allowed-headers: "*"
+
+# 讯飞星火大模型配置
+xunfei:
+  appid: "your_app_id"
+  apiKey: "your_api_key"
+  apiSecret: "your_api_secret"
+  sparkUrl: "https://spark-api.xf-yun.com/v3.1/chat"
+
+# 面部情感识别API配置
+facial:
+  api:
+    key: "your_facial_api_key"
+    url: "https://api.facial-analysis.com/v1/analyze"
+
+# 肢体语言识别API配置
+body:
+  api:
+    key: "your_body_language_api_key"
+    url: "https://api.body-language.com/v1/analyze" 

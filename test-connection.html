@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API连接测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #40a9ff;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+        .error {
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+        .info {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            color: #1890ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>智能面试系统 - API连接测试</h1>
+        
+        <div class="test-section">
+            <h3>1. 测试后端服务连接</h3>
+            <button onclick="testBackendConnection()">测试后端连接</button>
+            <div id="backend-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. 测试认证API</h3>
+            <button onclick="testAuthAPI()">测试认证API</button>
+            <div id="auth-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. 测试登录功能</h3>
+            <button onclick="testLogin()">测试登录</button>
+            <div id="login-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. 测试注册功能</h3>
+            <button onclick="testRegister()">测试注册</button>
+            <div id="register-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. 测试面试API</h3>
+            <button onclick="testInterviewAPI()">测试面试API</button>
+            <div id="interview-result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+        }
+
+        async function testBackendConnection() {
+            try {
+                showResult('backend-result', '正在测试后端连接...', 'info');
+                
+                const response = await fetch('http://localhost:8080/api/auth/check-auth?username=admin');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('backend-result', `✅ 后端连接成功！\n响应数据: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showResult('backend-result', `❌ 后端连接失败！\n状态码: ${response.status}\n状态文本: ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                showResult('backend-result', `❌ 后端连接错误！\n错误信息: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAuthAPI() {
+            try {
+                showResult('auth-result', '正在测试认证API...', 'info');
+                
+                const response = await fetch('http://localhost:8080/api/auth/check-auth?username=admin');
+                const data = await response.json();
+                
+                showResult('auth-result', `✅ 认证API测试成功！\n响应数据: ${JSON.stringify(data, null, 2)}`, 'success');
+            } catch (error) {
+                showResult('auth-result', `❌ 认证API测试失败！\n错误信息: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLogin() {
+            try {
+                showResult('login-result', '正在测试登录功能...', 'info');
+                
+                const response = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'password'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showResult('login-result', `✅ 登录测试成功！\n用户信息: ${JSON.stringify(data.user, null, 2)}`, 'success');
+                } else {
+                    showResult('login-result', `❌ 登录测试失败！\n错误信息: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showResult('login-result', `❌ 登录测试错误！\n错误信息: ${error.message}`, 'error');
+            }
+        }
+
+        async function testRegister() {
+            try {
+                showResult('register-result', '正在测试注册功能...', 'info');
+                
+                const testUsername = 'testuser_' + Date.now();
+                const response = await fetch('http://localhost:8080/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: testUsername,
+                        password: 'password123',
+                        email: `${testUsername}@example.com`,
+                        fullName: '测试用户'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showResult('register-result', `✅ 注册测试成功！\n用户信息: ${JSON.stringify(data.user, null, 2)}`, 'success');
+                } else {
+                    showResult('register-result', `❌ 注册测试失败！\n错误信息: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showResult('register-result', `❌ 注册测试错误！\n错误信息: ${error.message}`, 'error');
+            }
+        }
+
+        async function testInterviewAPI() {
+            try {
+                showResult('interview-result', '正在测试面试API...', 'info');
+                
+                const response = await fetch('http://localhost:8080/api/interview/positions');
+                const data = await response.json();
+                
+                showResult('interview-result', `✅ 面试API测试成功！\n岗位列表: ${JSON.stringify(data, null, 2)}`, 'success');
+            } catch (error) {
+                showResult('interview-result', `❌ 面试API测试失败！\n错误信息: ${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载时自动测试后端连接
+        window.onload = function() {
+            testBackendConnection();
+        };
+    </script>
+</body>
+</html> 
