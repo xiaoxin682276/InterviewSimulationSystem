@@ -124,23 +124,7 @@ const FeedbackPanel = ({ evaluationResult }) => {
       </div>
 
       {/* 总结 */}
-      <Divider />
-      <div style={{ 
-        padding: '16px', 
-        backgroundColor: '#f0f8ff', 
-        borderRadius: '8px',
-        border: '1px solid #91d5ff'
-      }}>
-        <Title level={5} style={{ margin: '0 0 8px 0', color: '#1890ff' }}>
-          总结
-        </Title>
-        <Paragraph style={{ margin: 0, fontSize: '14px', lineHeight: '1.6' }}>
-          根据您的面试表现，我们为您提供了个性化的评估和建议。
-          {totalScore >= 80 ? '您的综合能力很强，建议继续保持并进一步提升专业技能。' :
-           totalScore >= 60 ? '您具备该岗位的基本要求，建议按照上述建议进行针对性提升。' :
-           '建议您系统性地提升相关技能，可以参加培训课程或实践项目来增强竞争力。'}
-        </Paragraph>
-      </div>
+      {/* 已移除重复总结模块 */}
     </Card>
   );
 };

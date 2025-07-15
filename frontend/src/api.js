@@ -5,7 +5,7 @@ const API_BASE_URL = 'http://localhost:8080/api';
 // 创建axios实例
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 300000, // 5分钟
   headers: {
     'Content-Type': 'application/json',
   },
@@ -87,11 +87,20 @@ export const interviewAPI = {
   },
 
   // 根据岗位获取面试题目
-  getQuestions: async (position) => {
+  getQuestions: async (position, options = {}) => {
     try {
-      const response = await api.get('/interview/questions', {
-        params: { position }
-      });
+      const params = new URLSearchParams();
+      params.append('position', position);
+      
+      // 添加可选参数
+      if (options.count) params.append('count', options.count);
+      if (options.difficulty) params.append('difficulty', options.difficulty);
+      if (options.type) params.append('type', options.type);
+      if (options.tags && options.tags.length > 0) {
+        options.tags.forEach(tag => params.append('tags', tag));
+      }
+      
+      const response = await api.get(`/interview/questions?${params.toString()}`);
       return response.data;
     } catch (error) {
       console.error('获取面试题目失败:', error);
@@ -190,6 +199,54 @@ export const interviewAPI = {
       throw error;
     }
   },
+
+  // 获取题目统计信息
+  getQuestionStats: async (position) => {
+    try {
+      const response = await api.get('/interview/questions/stats', {
+        params: { position }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('获取题目统计失败:', error);
+      throw error;
+    }
+  },
+};
+
+// 直接生成题目（不入库）
+export const generateQuestionDirect = async (prompt, categoryId) => {
+  const params = new URLSearchParams();
+  params.append('prompt', prompt);
+  params.append('categoryId', categoryId);
+  const response = await api.post(`/interview/generate-question-direct?${params.toString()}`);
+  return response.data;
+};
+
+// 批量生成题目（不入库）
+export const generateQuestionsBatch = async (position, categoryId, count = 10) => {
+  const params = new URLSearchParams();
+  params.append('position', position);
+  params.append('categoryId', categoryId);
+  params.append('count', count);
+  const response = await api.get(`/interview/generate-questions-batch?${params.toString()}`);
+  return response.data;
+};
+
+// 提交异步生成任务
+export const startGenerateQuestionsAsync = async (position, categoryId = 1, count = 10) => {
+  const res = await api.post('/interview/generate-questions-async', null, {
+    params: { position, categoryId, count }
+  });
+  return res.data;
+};
+
+// 查询任务进度/结果
+export const getGenerateQuestionsResult = async (taskId) => {
+  const res = await api.get('/interview/generate-questions-result', {
+    params: { taskId }
+  });
+  return res.data;
 };
 
 export default api; 

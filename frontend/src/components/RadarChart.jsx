@@ -5,7 +5,16 @@ import { Radar, RadarChart as RechartsRadarChart, PolarGrid, PolarAngleAxis, Pol
 const { Title } = Typography;
 
 const RadarChart = ({ categoryScores }) => {
-  if (!categoryScores || Object.keys(categoryScores).length === 0) {
+  if (!categoryScores || typeof categoryScores !== 'object') {
+    return (
+      <Card className="card">
+        <Title level={3}>能力雷达图</Title>
+        <p>暂无评估数据，请先完成面试评估。</p>
+      </Card>
+    );
+  }
+  const keys = Object.keys(categoryScores);
+  if (keys.length === 0) {
     return (
       <Card className="card">
         <Title level={3}>能力雷达图</Title>

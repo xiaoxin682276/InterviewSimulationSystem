@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Typography, Button, message, Steps, Tabs, Card, Avatar, Dropdown, Menu } from 'antd';
-import { UserOutlined, FileTextOutlined, BarChartOutlined, TrophyOutlined, AudioOutlined, VideoCameraOutlined, LogoutOutlined } from '@ant-design/icons';
+import { Layout, Card, Typography, Button, Steps, message, Tabs, Dropdown, Menu, Avatar, Spin, List, Divider, Space, Tag } from 'antd';
+import { 
+  UserOutlined, 
+  LogoutOutlined, 
+  FileTextOutlined, 
+  BarChartOutlined, 
+  TrophyOutlined,
+  VideoCameraOutlined
+} from '@ant-design/icons';
 import 'antd/dist/reset.css';
 
 // 导入组件
@@ -21,6 +28,7 @@ const App = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedPosition, setSelectedPosition] = useState('');
   const [questions, setQuestions] = useState([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [videos, setVideos] = useState({});
   const [evaluationResult, setEvaluationResult] = useState(null);
@@ -29,6 +37,7 @@ const App = () => {
   const [evaluationMode, setEvaluationMode] = useState('basic'); // 'basic' or 'enhanced'
   const [user, setUser] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentApiSource, setCurrentApiSource] = useState('默认题库');
 
   // 检查用户登录状态
   useEffect(() => {
@@ -100,6 +109,30 @@ const App = () => {
     }));
   };
 
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    }
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+
+  const handleQuestionSelect = (index) => {
+    setCurrentQuestionIndex(index);
+  };
+
+  // 新增：判断当前题目已选的回答方式
+  const getCurrentAnswerMode = (qid) => {
+    if (videos[qid] && videos[qid].video) return 'video';
+    if (answers[qid] && answers[qid].audio) return 'audio';
+    if (answers[qid] && answers[qid].text) return 'text';
+    return null;
+  };
+
   const handleEvaluateInterview = async () => {
     if (Object.keys(answers).length < questions.length) {
       message.warning('请完成所有题目的回答后再进行评估');
@@ -108,63 +141,61 @@ const App = () => {
 
     setLoading(true);
     try {
-      if (evaluationMode === 'basic') {
-        const answerTexts = questions.map(q => answers[q.id]?.text || '');
-        const questionTexts = questions.map(q => q.question);
-
-        const evaluationData = {
-          position: selectedPosition,
-          answers: answerTexts,
-          questions: questionTexts
-        };
-
-        const result = await interviewAPI.evaluateInterview(evaluationData);
-        setEvaluationResult(result);
-        setCurrentStep(2);
-        message.success('基础评估完成！');
-      } else {
-        // 多模态评估
-        const multimodalData = {
-          position: selectedPosition,
-          textData: questions.map(q => ({
-            questionId: q.id,
+      // 多模态评估，每题只提交一种方式，优先级：视频>音频>文本
+      const multimodalData = {
+        position: selectedPosition,
+        textData: [],
+        audioData: [],
+        videoData: []
+      };
+      questions.forEach(q => {
+        const qid = q.id;
+        if (videos[qid] && videos[qid].video) {
+          multimodalData.videoData.push({
+            questionId: qid,
+            videoUrl: videos[qid].video
+          });
+        } else if (answers[qid] && answers[qid].audio) {
+          multimodalData.audioData.push({
+            questionId: qid,
+            audioUrl: answers[qid].audio
+          });
+        } else if (answers[qid] && answers[qid].text) {
+          multimodalData.textData.push({
+            questionId: qid,
             question: q.question,
-            answer: answers[q.id]?.text || '',
-            resume: '' // 可以从用户输入获取
-          })),
-          audioData: questions.map(q => ({
-            questionId: q.id,
-            audioUrl: answers[q.id]?.audio || ''
-          })),
-          videoData: questions.map(q => ({
-            questionId: q.id,
-            videoUrl: videos[q.id]?.video || ''
-          }))
-        };
-
-        // 检查是否有视频文件用于增强分析
-        const hasVideoFile = Object.values(videos).some(video => video && video.file);
-        
-        if (hasVideoFile && evaluationMode === 'enhanced') {
-          // 使用增强的多模态评估（包含面部情感和肢体语言分析）
-          const videoFile = Object.values(videos).find(video => video && video.file)?.file;
-          const result = await interviewAPI.evaluateInterviewEnhancedWithVideo(multimodalData, videoFile);
-          setEnhancedEvaluationResult(result);
-          setCurrentStep(2);
-          message.success('增强多模态评估完成！包含面部情感和肢体语言分析');
-        } else {
-          // 使用基础多模态评估
-          const result = await interviewAPI.evaluateInterviewEnhanced(multimodalData);
-          setEnhancedEvaluationResult(result);
-          setCurrentStep(2);
-          message.success('多模态评估完成！');
+            answer: answers[qid].text,
+            resume: ''
+          });
         }
+      });
+
+      // 检查是否有视频文件用于增强分析
+      const hasVideoFile = Object.values(videos).some(video => video && video.file);
+      if (hasVideoFile && evaluationMode === 'enhanced') {
+        const videoFile = Object.values(videos).find(video => video && video.file)?.file;
+        console.log('开始增强多模态评测...');
+        const result = await interviewAPI.evaluateInterviewEnhancedWithVideo(multimodalData, videoFile);
+        console.log('API返回（增强）:', result);
+        setEnhancedEvaluationResult(result);
+        console.log('setEnhancedEvaluationResult后:', result);
+        setCurrentStep(2);
+        message.success('增强多模态评测完成！');
+      } else {
+        console.log('开始基础多模态评测...');
+        const result = await interviewAPI.evaluateInterviewEnhanced(multimodalData);
+        console.log('API返回（基础）:', result);
+        setEnhancedEvaluationResult(result);
+        console.log('setEnhancedEvaluationResult后:', result);
+        setCurrentStep(2);
+        message.success('多模态评测完成！');
       }
     } catch (error) {
       console.error('评估失败:', error);
       message.error('评估失败，请重试');
     } finally {
       setLoading(false);
+      console.log('【handleEvaluateInterview finally】setLoading(false) 执行，当前loading:', loading);
     }
   };
 
@@ -172,6 +203,7 @@ const App = () => {
     setCurrentStep(0);
     setSelectedPosition('');
     setQuestions([]);
+    setCurrentQuestionIndex(0);
     setAnswers({});
     setVideos({});
     setEvaluationResult(null);
@@ -190,70 +222,37 @@ const App = () => {
               position={selectedPosition} 
               onQuestionsLoaded={handleQuestionsLoaded}
             />
-            
-            {/* 评估模式选择 */}
+            {/* 多模态评估：分为“文字/语音回答”和“视频回答”两个Tab */}
             <Card className="card" style={{ marginBottom: '20px' }}>
-              <Title level={4}>选择评估模式</Title>
-              <Tabs 
-                activeKey={evaluationMode} 
-                onChange={setEvaluationMode}
-                items={[
-                  {
-                    key: 'basic',
-                    label: (
-                      <span>
-                        <FileTextOutlined /> 基础评估
-                      </span>
-                    ),
-                    children: (
-                      <div>
-                        <AnswerRecorder 
-                          currentQuestion={questions[0]} 
-                          onAnswerSubmit={handleAnswerSubmit}
-                          answers={answers}
-                        />
-                      </div>
-                    )
-                  },
-                  {
-                    key: 'enhanced',
-                    label: (
-                      <span>
-                        <VideoCameraOutlined /> 多模态评估
-                      </span>
-                    ),
-                    children: (
-                      <div>
-                        <Tabs defaultActiveKey="text" size="small">
-                          <Tabs.TabPane tab="文字回答" key="text">
-                            <AnswerRecorder 
-                              currentQuestion={questions[0]} 
-                              onAnswerSubmit={handleAnswerSubmit}
-                              answers={answers}
-                            />
-                          </Tabs.TabPane>
-                          <Tabs.TabPane tab="语音录制" key="audio">
-                            <AnswerRecorder 
-                              currentQuestion={questions[0]} 
-                              onAnswerSubmit={handleAnswerSubmit}
-                              answers={answers}
-                            />
-                          </Tabs.TabPane>
-                          <Tabs.TabPane tab="视频录制" key="video">
-                            <VideoRecorder 
-                              currentQuestion={questions[0]} 
-                              onVideoSubmit={handleVideoSubmit}
-                              videos={videos}
-                            />
-                          </Tabs.TabPane>
-                        </Tabs>
-                      </div>
-                    )
-                  }
-                ]}
-              />
+              <Title level={4}>多模态评估</Title>
+              <div style={{color:'#faad14',marginBottom:8,fontWeight:500}}>
+                每道题只能提交一种方式，优先级：<b>视频 &gt; 音频 &gt; 文本</b>。如已提交视频，音频和文本按钮将不可用。
+              </div>
+              <Tabs defaultActiveKey="text_audio" size="large">
+                <Tabs.TabPane tab="文字/语音回答" key="text_audio">
+                  <AnswerRecorder 
+                    currentQuestion={questions[currentQuestionIndex]} 
+                    onAnswerSubmit={handleAnswerSubmit}
+                    answers={answers}
+                    mode="text" // 允许AnswerRecorder内部切换文字/语音
+                    totalQuestions={questions.length}
+                    currentQuestionIndex={currentQuestionIndex}
+                    onNextQuestion={handleNextQuestion}
+                    onPrevQuestion={handlePrevQuestion}
+                    onQuestionSelect={handleQuestionSelect}
+                    answerMode={getCurrentAnswerMode(questions[currentQuestionIndex]?.id)}
+                  />
+                </Tabs.TabPane>
+                <Tabs.TabPane tab="视频回答" key="video">
+                  <VideoRecorder 
+                    currentQuestion={questions[currentQuestionIndex]} 
+                    onVideoSubmit={handleVideoSubmit}
+                    videos={videos}
+                    answerMode={getCurrentAnswerMode(questions[currentQuestionIndex]?.id)}
+                  />
+                </Tabs.TabPane>
+              </Tabs>
             </Card>
-            
             <div style={{ textAlign: 'center', marginTop: '20px' }}>
               <Button 
                 type="primary" 
@@ -262,43 +261,156 @@ const App = () => {
                 loading={loading}
                 disabled={Object.keys(answers).length < questions.length}
               >
-                完成{evaluationMode === 'enhanced' ? '多模态' : ''}评估
+                完成多模态评估
               </Button>
             </div>
           </div>
         );
       
       case 2:
+        console.log('【case 2】currentStep:', currentStep);
+        console.log('【case 2】loading:', loading);
+        console.log('【case 2】enhancedEvaluationResult:', enhancedEvaluationResult);
+        console.log('【case 2】evaluationMode:', evaluationMode);
         return (
           <div>
-            {evaluationMode === 'enhanced' ? (
-              <EnhancedFeedbackPanel evaluationResult={enhancedEvaluationResult} />
+            {loading || !enhancedEvaluationResult ? (
+              <div style={{textAlign:'center',padding:'80px 0'}}>
+                <Spin size="large" tip="评估中，请稍候..." style={{fontSize:20}} />
+              </div>
             ) : (
-              <FeedbackPanel evaluationResult={evaluationResult} />
+              <>
+                {console.log('【case 2】准备渲染 EnhancedFeedbackPanel，数据：', enhancedEvaluationResult)}
+                <EnhancedFeedbackPanel evaluationResult={enhancedEvaluationResult} hideSummaryTab={true} />
+                {console.log('【case 2】EnhancedFeedbackPanel 渲染完毕')}
+                <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                  <Button 
+                    type="primary" 
+                    onClick={() => setCurrentStep(3)}
+                    style={{ marginRight: '10px' }}
+                  >
+                    查看详细分析
+                  </Button>
+                  <Button onClick={resetInterview}>
+                    重新开始
+                  </Button>
+                </div>
+              </>
             )}
-            <div style={{ textAlign: 'center', marginTop: '20px' }}>
-              <Button 
-                type="primary" 
-                onClick={() => setCurrentStep(3)}
-                style={{ marginRight: '10px' }}
-              >
-                查看详细分析
-              </Button>
-              <Button onClick={resetInterview}>
-                重新开始
-              </Button>
-            </div>
           </div>
         );
       
       case 3:
+        // 课程名与国内可访问学习资源的映射
+        const learningResourceMap = {
+          '面试表达技巧训练': 'https://www.bilibili.com/video/BV1wF411w7oA',
+          '前端开发技能提升课程': 'https://www.bilibili.com/video/BV1oz421q7BB',
+          '后端开发技能提升课程': 'https://www.bilibili.com/video/BV1m84y1w7Tb',
+          '全栈开发技能提升课程': 'https://www.bilibili.com/video/BV14z4y1N7pg',
+          // 可继续扩展其它课程
+        };
+        // 对learningPaths做前端兜底补全
+        const patchedLearningPaths = (enhancedEvaluationResult?.learningPaths || []).map(path => {
+          // 判断后端返回的链接是否为无效example.com等
+          const isInvalidUrl = path.resourceUrl && /example\.com|test\.com|localhost|127\.0\.0\.1/.test(path.resourceUrl);
+          return {
+            ...path,
+            resourceUrl: (!path.resourceUrl || isInvalidUrl) ? (learningResourceMap[path.title] || '') : path.resourceUrl
+          };
+        });
         return (
           <div>
-            <RadarChart categoryScores={
-              evaluationMode === 'enhanced' 
-                ? enhancedEvaluationResult?.coreCompetencies 
-                : evaluationResult?.categoryScores
-            } />
+            <Card className="card">
+              <Title level={3}>个性化改进建议</Title>
+              <List
+                dataSource={enhancedEvaluationResult?.improvementSuggestions || []}
+                renderItem={(item, index) => (
+                  <List.Item style={{ padding: '12px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                      <div style={{
+                        backgroundColor: '#52c41a',
+                        color: 'white',
+                        borderRadius: '50%',
+                        width: '24px',
+                        height: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        marginRight: '12px',
+                        flexShrink: 0
+                      }}>
+                        {index + 1}
+                      </div>
+                      <Typography.Paragraph style={{ margin: 0, fontSize: '14px', lineHeight: '1.6' }}>
+                        {item}
+                      </Typography.Paragraph>
+                    </div>
+                  </List.Item>
+                )}
+              />
+              <Divider />
+              <Title level={3}>个性化学习路径</Title>
+              {patchedLearningPaths.length > 0 ? (
+                <List
+                  dataSource={patchedLearningPaths}
+                  renderItem={(path, index) => (
+                    <List.Item style={{ padding: '16px 0' }}>
+                      <div style={{
+                        padding: '16px',
+                        border: '1px solid #e8e8e8',
+                        borderRadius: '8px',
+                        width: '100%'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                          <div>
+                            <Title level={5} style={{ margin: '0 0 4px 0' }}>
+                              {path.title}
+                            </Title>
+                            <Tag color="blue" style={{ marginBottom: '8px' }}>
+                              {path.category}
+                            </Tag>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <Tag color="orange">优先级: {path.priority}</Tag>
+                            <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                              预计时长: {path.estimatedTime}小时
+                            </div>
+                          </div>
+                        </div>
+                        <Typography.Paragraph style={{ margin: '8px 0', fontSize: '14px' }}>
+                          {path.description}
+                        </Typography.Paragraph>
+                        <Space>
+                          <Button
+                            type="primary"
+                            size="small"
+                            icon={<VideoCameraOutlined />}
+                            onClick={() => path.resourceUrl && window.open(path.resourceUrl, '_blank')}
+                            disabled={!path.resourceUrl}
+                          >
+                            开始学习
+                          </Button>
+                          <Button size="small">
+                            添加到收藏
+                          </Button>
+                        </Space>
+                        {!path.resourceUrl && (
+                          <div style={{ color: '#ff4d4f', marginTop: 8, fontSize: 12 }}>
+                            暂无可用学习链接
+                          </div>
+                        )}
+                      </div>
+                    </List.Item>
+                  )}
+                />
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                  <VideoCameraOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
+                  <p>暂无推荐的学习路径</p>
+                </div>
+              )}
+            </Card>
             <div style={{ textAlign: 'center', marginTop: '20px' }}>
               <Button onClick={resetInterview}>
                 重新开始

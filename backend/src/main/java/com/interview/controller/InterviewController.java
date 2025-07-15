@@ -8,19 +8,31 @@ import com.interview.service.EvaluationService;
 import com.interview.service.MultimodalAnalysisService;
 import com.interview.service.UserService;
 import com.interview.service.InterviewSessionService;
+import com.interview.service.QuestionBankService;
+import com.interview.service.XunfeiSparkService;
+import com.interview.service.QuestionAsyncTaskService;
+import com.interview.service.XunfeiIatService;
 import com.interview.entity.User;
 import com.interview.entity.InterviewSession;
+import com.interview.entity.Question;
+import com.interview.entity.QuestionCategory;
 import com.interview.repository.EvaluationResultRepository;
+import com.interview.repository.QuestionCategoryRepository;
+import com.interview.repository.QuestionRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.Optional;
+import java.util.Collections;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/interview")
@@ -32,6 +44,23 @@ public class InterviewController {
     
     @Autowired
     private MultimodalAnalysisService multimodalAnalysisService;
+    
+    @Autowired
+    private QuestionBankService questionBankService;
+    
+    @Autowired
+    private XunfeiSparkService xunfeiSparkService;
+    
+    @Autowired
+    private XunfeiIatService xunfeiIatService;
+    
+    @Autowired
+    private QuestionRepository questionRepository;
+    @Autowired
+    private QuestionCategoryRepository categoryRepository;
+    
+    @Autowired
+    private QuestionAsyncTaskService questionAsyncTaskService;
     
     @PostMapping("/evaluate")
     public ResponseEntity<EvaluationResult> evaluateInterview(@RequestBody InterviewRequest request) {
@@ -98,6 +127,31 @@ public class InterviewController {
         }
     }
     
+    @PostMapping("/parse-answer")
+    public ResponseEntity<?> parseAnswer(
+        @RequestParam String question, // 新增题目参数
+        @RequestParam(required = false) String text,
+        @RequestParam(required = false) MultipartFile audio,
+        @RequestParam(required = false) MultipartFile video
+    ) {
+        try {
+            String userAnswer = text;
+            if (userAnswer == null && audio != null && !audio.isEmpty()) {
+                userAnswer = xunfeiIatService.recognize(audio);
+            }
+            if (userAnswer == null || userAnswer.isBlank()) {
+                return ResponseEntity.badRequest().body("未检测到有效回答内容");
+            }
+            // 拼接大模型prompt
+            String prompt = "题目：" + question + "\n用户回答：" + userAnswer;
+            String analysis = xunfeiSparkService.analyzeWithSpark(prompt, null);
+            // 可存库：question, userAnswer, analysis
+            return ResponseEntity.ok(Map.of("question", question, "text", userAnswer, "analysis", analysis));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("解析失败: " + e.getMessage());
+        }
+    }
+    
     @GetMapping("/learning-paths")
     public ResponseEntity<List<EnhancedEvaluationResult.LearningPath>> getLearningPaths(
             @RequestParam String position, 
@@ -110,137 +164,186 @@ public class InterviewController {
         }
     }
     
+    /**
+     * 获取随机题目
+     */
     @GetMapping("/questions")
-    public ResponseEntity<Map<String, List<String>>> getQuestions(@RequestParam String position) {
-        // 根据岗位返回相应的面试题目
-        Map<String, List<String>> questions = getQuestionsByPosition(position);
-        return ResponseEntity.ok(questions);
+    public ResponseEntity<Map<String, List<String>>> getQuestions(
+            @RequestParam String position,
+            @RequestParam(defaultValue = "7") int count,
+            @RequestParam(required = false) String difficulty,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) List<String> tags) {
+        try {
+            Map<String, List<String>> questions;
+            
+            if (difficulty != null) {
+                // 根据难度级别获取题目
+                Question.DifficultyLevel difficultyLevel = Question.DifficultyLevel.valueOf(difficulty.toUpperCase());
+                questions = questionBankService.getRandomQuestionsByPositionAndDifficulty(position, difficultyLevel, count);
+            } else if (type != null) {
+                // 根据题目类型获取题目
+                Question.QuestionType questionType = Question.QuestionType.valueOf(type.toUpperCase());
+                questions = questionBankService.getRandomQuestionsByPositionAndType(position, questionType, count);
+            } else if (tags != null && !tags.isEmpty()) {
+                // 根据标签获取题目
+                questions = questionBankService.getRandomQuestionsByPositionAndTags(position, tags, count);
+            } else {
+                // 随机获取题目
+                questions = questionBankService.getRandomQuestionsByPosition(position, count);
+            }
+            
+            return ResponseEntity.ok(questions);
+        } catch (Exception e) {
+            System.err.println("获取题目失败: " + e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
     }
     
+    /**
+     * 获取可用岗位列表
+     */
     @GetMapping("/positions")
     public ResponseEntity<List<String>> getAvailablePositions() {
-        List<String> positions = List.of("前端开发", "后端开发", "全栈开发");
-        return ResponseEntity.ok(positions);
-    }
-    
-    private Map<String, List<String>> getQuestionsByPosition(String position) {
-        Map<String, List<String>> questions = new java.util.HashMap<>();
-        
-        switch (position) {
-            case "前端开发":
-                questions.put("技术能力", List.of(
-                    "请介绍一下你对HTML、CSS、JavaScript的理解",
-                    "你熟悉哪些前端框架？请谈谈你的使用经验",
-                    "如何优化前端性能？"
-                ));
-                questions.put("项目经验", List.of(
-                    "请描述一个你参与的前端项目",
-                    "在项目中遇到过哪些技术难点？如何解决的？"
-                ));
-                questions.put("沟通能力", List.of(
-                    "如何与后端开发人员协作？",
-                    "如何向非技术人员解释技术问题？"
-                ));
-                questions.put("学习能力", List.of(
-                    "你如何保持技术更新？",
-                    "最近学习了什么新技术？"
-                ));
-                break;
-                
-            case "后端开发":
-                questions.put("技术能力", List.of(
-                    "请介绍一下你对Java的理解",
-                    "你熟悉哪些数据库？请谈谈你的使用经验",
-                    "如何设计一个高并发的系统？"
-                ));
-                questions.put("系统设计", List.of(
-                    "请描述一个你参与的后端项目",
-                    "如何设计微服务架构？"
-                ));
-                questions.put("问题解决", List.of(
-                    "如何排查生产环境的问题？",
-                    "如何保证系统的安全性？"
-                ));
-                break;
-                
-            case "全栈开发":
-                questions.put("技术能力", List.of(
-                    "请介绍一下你的技术栈",
-                    "前后端分离的优势是什么？",
-                    "如何保证前后端接口的一致性？"
-                ));
-                questions.put("系统设计", List.of(
-                    "请描述一个你参与的全栈项目",
-                    "如何设计一个完整的系统架构？"
-                ));
-                questions.put("项目经验", List.of(
-                    "在项目中遇到过哪些挑战？如何解决的？",
-                    "如何管理项目的技术债务？"
-                ));
-                questions.put("沟通能力", List.of(
-                    "如何协调前后端开发进度？",
-                    "如何与产品经理沟通需求？"
-                ));
-                break;
-                
-            default:
-                // 默认返回前端开发的问题
-                questions.put("技术能力", List.of(
-                    "请介绍一下你的技术背景",
-                    "你熟悉哪些编程语言？",
-                    "如何解决技术问题？"
-                ));
-                questions.put("项目经验", List.of(
-                    "请描述一个你参与的项目",
-                    "在项目中遇到过哪些问题？如何解决的？"
-                ));
-                questions.put("沟通能力", List.of(
-                    "如何与团队成员协作？",
-                    "如何向他人解释技术问题？"
-                ));
-                questions.put("学习能力", List.of(
-                    "你如何学习新技术？",
-                    "最近学习了什么新技能？"
-                ));
-                break;
+        try {
+            List<String> positions = questionBankService.getAvailablePositions();
+            return ResponseEntity.ok(positions);
+        } catch (Exception e) {
+            System.err.println("获取岗位列表失败: " + e.getMessage());
+            // 返回默认岗位列表
+            List<String> defaultPositions = List.of("前端开发", "后端开发", "全栈开发");
+            return ResponseEntity.ok(defaultPositions);
         }
-        
-        return questions;
     }
     
-    // 处理音频文件上传
+    /**
+     * 获取题目统计信息
+     */
+    @GetMapping("/questions/stats")
+    public ResponseEntity<Map<String, Object>> getQuestionStats(@RequestParam String position) {
+        try {
+            long totalQuestions = questionBankService.countQuestionsByPosition(position);
+            List<String> availablePositions = questionBankService.getAvailablePositions();
+            
+            Map<String, Object> stats = Map.of(
+                "position", position,
+                "totalQuestions", totalQuestions,
+                "availablePositions", availablePositions
+            );
+            
+            return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            System.err.println("获取题目统计失败: " + e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * 自动生成面试题并插入数据库
+     */
+    @PostMapping("/generate-question")
+    public ResponseEntity<Question> generateQuestion(@RequestParam String prompt, @RequestParam int categoryId) {
+        try {
+            Question q = xunfeiSparkService.generateAndSaveQuestion(prompt, categoryId);
+            return ResponseEntity.ok(q);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
+    
+    /**
+     * 批量导入题目接口
+     */
+    @PostMapping("/import-questions")
+    public ResponseEntity<?> importQuestions(@RequestBody List<Map<String, Object>> questions) {
+        int success = 0, fail = 0;
+        for (Map<String, Object> q : questions) {
+            try {
+                Question question = new Question();
+                question.setQuestionText((String) q.get("question_text"));
+                question.setPosition((String) q.get("position"));
+                question.setDifficultyLevel(Question.DifficultyLevel.valueOf((String) q.get("difficulty_level")));
+                question.setQuestionType(Question.QuestionType.valueOf((String) q.get("question_type")));
+                question.setTags((String) q.get("tags"));
+                question.setIsActive((Boolean) q.get("is_active"));
+                Long categoryId = Long.valueOf(q.get("category_id").toString());
+                QuestionCategory category = categoryRepository.findById(categoryId).orElse(null);
+                question.setCategory(category);
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                question.setCreatedAt(LocalDateTime.parse((String) q.get("created_at"), formatter));
+                question.setUpdatedAt(LocalDateTime.parse((String) q.get("updated_at"), formatter));
+                questionRepository.save(question);
+                success++;
+            } catch (Exception e) {
+                fail++;
+            }
+        }
+        return ResponseEntity.ok(Map.of("success", success, "fail", fail));
+    }
+    
+    /**
+     * 直接生成题目JSON返回前端（不入库）
+     */
+    @PostMapping("/generate-question-direct")
+    public ResponseEntity<?> generateQuestionDirect(@RequestParam String prompt, @RequestParam int categoryId) {
+        try {
+            String questionJson = xunfeiSparkService.generateQuestionJson(prompt, categoryId);
+            return ResponseEntity.ok(questionJson);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("生成题目失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 批量生成题目并返回JSON数组，自动加载用
+     */
+    @RequestMapping(value = "/generate-questions-batch", method = {RequestMethod.POST, RequestMethod.GET})
+    public ResponseEntity<?> generateQuestionsBatch(@RequestParam String position, @RequestParam int categoryId, @RequestParam(defaultValue = "10") int count) {
+        try {
+            String questionsJson = xunfeiSparkService.generateQuestionsJsonBatch(position, categoryId, count);
+            return ResponseEntity.ok(questionsJson);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("批量生成题目失败: " + e.getMessage());
+        }
+    }
+    
+    // 异步批量生成题目任务提交接口
+    @PostMapping("/generate-questions-async")
+    public Map<String, String> generateQuestionsAsync(@RequestParam String position,
+                                                  @RequestParam int categoryId,
+                                                  @RequestParam(defaultValue = "10") int count) {
+        String taskId = questionAsyncTaskService.submitTask();
+        questionAsyncTaskService.runTask(taskId, () -> {
+            String json = xunfeiSparkService.generateQuestionsJsonBatch(position, categoryId, count);
+            return new ObjectMapper().readValue(json, List.class);
+        });
+        return Collections.singletonMap("taskId", taskId);
+    }
+
+    // 查询异步批量生成题目任务进度/结果
+    @GetMapping("/generate-questions-result")
+    public Map<String, Object> getGenerateQuestionsResult(@RequestParam String taskId) {
+        QuestionAsyncTaskService.TaskStatus status = questionAsyncTaskService.getTaskStatus(taskId);
+        Map<String, Object> result = new HashMap<>();
+        result.put("status", status.status);
+        result.put("questions", status.questions);
+        return result;
+    }
+    
+    // 私有辅助方法
     private String processAudioUpload(MultipartFile file, String questionId) {
-        // 这里应该实现音频文件处理逻辑
-        // 包括文件保存、格式转换、语音识别等
-        return "/uploads/audio/" + questionId + "_" + System.currentTimeMillis() + ".wav";
+        // 实现音频文件处理逻辑
+        return "audio_url_" + questionId;
     }
     
-    // 处理视频文件上传
     private String processVideoUpload(MultipartFile file, String questionId) {
-        // 这里应该实现视频文件处理逻辑
-        // 包括文件保存、格式转换、视频分析等
-        return "/uploads/video/" + questionId + "_" + System.currentTimeMillis() + ".mp4";
+        // 实现视频文件处理逻辑
+        return "video_url_" + questionId;
     }
     
-    // 生成学习路径
     private List<EnhancedEvaluationResult.LearningPath> generateLearningPaths(String position, Map<String, Double> competencies) {
-        List<EnhancedEvaluationResult.LearningPath> paths = new ArrayList<>();
-        
-        // 根据岗位和能力评分生成个性化学习路径
-        if (competencies.get(EnhancedEvaluationResult.LANGUAGE_EXPRESSION) < 75) {
-            paths.add(new EnhancedEvaluationResult.LearningPath(
-                "表达能力", "面试表达技巧训练", "提升面试时的语言表达能力",
-                "https://example.com/expression-course", "course", 1, 8.0
-            ));
-        }
-        
-        if (competencies.get(EnhancedEvaluationResult.PROFESSIONAL_KNOWLEDGE) < 75) {
-            paths.add(new EnhancedEvaluationResult.LearningPath(
-                "专业技能", position + "技能提升课程", "深入学习相关技术栈",
-                "https://example.com/skill-course", "course", 1, 20.0
-            ));
-        }
-        
-        return paths;
+        // 实现学习路径生成逻辑
+        return new ArrayList<>();
     }
 } 

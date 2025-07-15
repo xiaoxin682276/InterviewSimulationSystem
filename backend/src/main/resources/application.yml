@@ -23,19 +23,6 @@ spring:
         format_sql: true
     database-platform: org.hibernate.dialect.MySQL8Dialect
   
-  # 数据库配置（如果需要）
-  # datasource:
-  #   url: jdbc:mysql://localhost:3306/interview_db
-  #   username: root
-  #   password: password
-  #   driver-class-name: com.mysql.cj.jdbc.Driver
-  
-  # JPA配置（如果需要）
-  # jpa:
-  #   hibernate:
-  #     ddl-auto: update
-  #   show-sql: true
-  
   # 文件上传配置
   servlet:
     multipart:
@@ -58,11 +45,16 @@ cors:
 
 # 讯飞星火大模型配置
 xunfei:
-  appid: "your_app_id"
-  apiKey: "your_api_key"
-  apiSecret: "your_api_secret"
-  sparkUrl: "https://spark-api.xf-yun.com/v3.1/chat"
-
+  spark:
+    appid: "453afd9a"
+    apiKey: "bc78b8908cb5c19f9429c8de0d07adfc"
+    apiSecret: "MTQxMDM1YzhmYTc4OTg4Y2ExMDg1ZTZh"
+    url: "https://spark-api-open.xf-yun.com/v1/chat/completions"
+  iat:
+    appid: "ce130cad"
+    apiKey: "1a87ba822266e04b634cea830e9b9b8e"
+    apiSecret: "NjQwNzgxMzI0ZWEwMmJmZWZmNmVkNThh"
+    url: "https://iat-api.xfyun.cn/v2/iat"
 # 面部情感识别API配置
 facial:
   api:

@@ -12,6 +12,7 @@ public class EnhancedEvaluationResult {
     private String overallFeedback;
     private Map<String, Object> multimodalInsights; // 多模态洞察
     private List<LearningPath> learningPaths; // 个性化学习路径
+    private List<QuestionAnalysis> questionAnalyses;
 
     // 构造函数
     public EnhancedEvaluationResult() {}
@@ -92,6 +93,13 @@ public class EnhancedEvaluationResult {
         this.learningPaths = learningPaths;
     }
 
+    public List<QuestionAnalysis> getQuestionAnalyses() {
+        return questionAnalyses;
+    }
+    public void setQuestionAnalyses(List<QuestionAnalysis> questionAnalyses) {
+        this.questionAnalyses = questionAnalyses;
+    }
+
     // 学习路径内部类
     public static class LearningPath {
         private String category;
@@ -136,6 +144,35 @@ public class EnhancedEvaluationResult {
 
         public double getEstimatedTime() { return estimatedTime; }
         public void setEstimatedTime(double estimatedTime) { this.estimatedTime = estimatedTime; }
+    }
+
+    // 每题分析内部类
+    public static class QuestionAnalysis {
+        private String question;
+        private String userAnswer;
+        private String analysis;
+        private Double score;
+
+        public QuestionAnalysis() {}
+
+        public QuestionAnalysis(String question, String userAnswer, String analysis, Double score) {
+            this.question = question;
+            this.userAnswer = userAnswer;
+            this.analysis = analysis;
+            this.score = score;
+        }
+
+        public String getQuestion() { return question; }
+        public void setQuestion(String question) { this.question = question; }
+
+        public String getUserAnswer() { return userAnswer; }
+        public void setUserAnswer(String userAnswer) { this.userAnswer = userAnswer; }
+
+        public String getAnalysis() { return analysis; }
+        public void setAnalysis(String analysis) { this.analysis = analysis; }
+
+        public Double getScore() { return score; }
+        public void setScore(Double score) { this.score = score; }
     }
 
     // 核心能力指标常量

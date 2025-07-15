@@ -4,7 +4,7 @@ import { VideoCameraOutlined, VideoCameraAddOutlined, StopOutlined } from '@ant-
 
 const { Title, Paragraph } = Typography;
 
-const VideoRecorder = ({ currentQuestion, onVideoSubmit, videos }) => {
+const VideoRecorder = ({ currentQuestion, onVideoSubmit, videos, answerMode }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [videoUrl, setVideoUrl] = useState('');
@@ -115,6 +115,16 @@ const VideoRecorder = ({ currentQuestion, onVideoSubmit, videos }) => {
   return (
     <Card className="card">
       <Title level={3}>视频录制</Title>
+      {answerMode === 'audio' && (
+        <Paragraph type="warning" style={{color:'#faad14',fontWeight:500}}>
+          已提交语音，本题只能提交语音，视频录制不可用。
+        </Paragraph>
+      )}
+      {answerMode === 'text' && (
+        <Paragraph type="warning" style={{color:'#faad14',fontWeight:500}}>
+          已提交文本，本题只能提交文本，视频录制不可用。
+        </Paragraph>
+      )}
       <Paragraph>
         请录制您的面试回答视频，系统将分析您的微表情、肢体语言和眼神交流：
       </Paragraph>
@@ -159,6 +169,7 @@ const VideoRecorder = ({ currentQuestion, onVideoSubmit, videos }) => {
               danger 
               icon={<StopOutlined />}
               onClick={stopRecording}
+              disabled={answerMode === 'audio' || answerMode === 'text'}
             >
               停止录制
             </Button>
@@ -175,6 +186,7 @@ const VideoRecorder = ({ currentQuestion, onVideoSubmit, videos }) => {
               type="primary" 
               icon={<VideoCameraOutlined />}
               onClick={startRecording}
+              disabled={answerMode === 'audio' || answerMode === 'text'}
             >
               开始录制
             </Button>
@@ -202,7 +214,7 @@ const VideoRecorder = ({ currentQuestion, onVideoSubmit, videos }) => {
           type="primary" 
           size="large"
           onClick={handleSubmit}
-          disabled={!videoUrl}
+          disabled={!videoUrl || answerMode === 'audio' || answerMode === 'text'}
         >
           提交视频
         </Button>

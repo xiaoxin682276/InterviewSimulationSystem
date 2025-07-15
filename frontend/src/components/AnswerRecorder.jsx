@@ -5,20 +5,50 @@ import { AudioOutlined, AudioMutedOutlined, SendOutlined } from '@ant-design/ico
 const { Title, Paragraph } = Typography;
 const { TextArea } = Input;
 
-const AnswerRecorder = ({ currentQuestion, onAnswerSubmit, answers }) => {
+const AnswerRecorder = ({ 
+  currentQuestion, 
+  onAnswerSubmit, 
+  answers, 
+  mode = 'text', 
+  totalQuestions = 0,
+  currentQuestionIndex = 0,
+  onNextQuestion,
+  onPrevQuestion,
+  onQuestionSelect,
+  answerMode // 新增
+}) => {
   const [currentAnswer, setCurrentAnswer] = useState('');
+  
+  // 安全的字符串处理函数
+  const safeString = (value) => {
+    if (typeof value === 'string') return value;
+    if (value === null || value === undefined) return '';
+    return String(value);
+  };
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [audioChunks, setAudioChunks] = useState([]);
   const [audioUrl, setAudioUrl] = useState('');
-  const [inputMode, setInputMode] = useState('text'); // 'text' or 'voice'
+  const [inputMode, setInputMode] = useState(mode); // 'text' or 'voice'
 
   useEffect(() => {
     // 当题目改变时，清空当前答案
     if (currentQuestion) {
-      setCurrentAnswer(answers[currentQuestion.id] || '');
-      setAudioUrl('');
+      const existingAnswer = answers[currentQuestion.id];
+      // 如果答案是对象格式，提取text字段；如果是字符串，直接使用；否则使用空字符串
+      const answerText = existingAnswer 
+        ? (typeof existingAnswer === 'string' ? existingAnswer : safeString(existingAnswer.text))
+        : '';
+      setCurrentAnswer(answerText);
+      
+      // 如果有音频数据，设置音频URL
+      if (existingAnswer && typeof existingAnswer === 'object' && existingAnswer.audio) {
+        setAudioUrl(existingAnswer.audio);
+      } else {
+        setAudioUrl('');
+      }
+      
       setAudioChunks([]);
       setRecordingTime(0);
     }
@@ -74,17 +104,19 @@ const AnswerRecorder = ({ currentQuestion, onAnswerSubmit, answers }) => {
   };
 
   const handleTextChange = (e) => {
-    setCurrentAnswer(e.target.value);
+    // 确保设置的值是字符串类型
+    setCurrentAnswer(safeString(e.target.value));
   };
 
   const handleSubmit = () => {
-    if (!currentAnswer.trim() && !audioUrl) {
+    const safeAnswer = safeString(currentAnswer);
+    if (!safeAnswer.trim() && !audioUrl) {
       message.warning('请输入答案或录制语音');
       return;
     }
 
     const answerData = {
-      text: currentAnswer,
+      text: safeAnswer,
       audio: audioUrl,
       timestamp: new Date().toISOString()
     };
@@ -105,29 +137,49 @@ const AnswerRecorder = ({ currentQuestion, onAnswerSubmit, answers }) => {
 
   return (
     <Card className="card">
-      <Title level={3}>记录答案</Title>
+      <Title level={3}>
+        {mode === 'voice' ? '语音录制' : '文字回答'}
+      </Title>
+      {answerMode === 'video' && (
+        <Paragraph type="warning" style={{color:'#faad14',fontWeight:500}}>
+          已提交视频，本题只能提交视频，文字和语音不可用。
+        </Paragraph>
+      )}
+      {answerMode === 'audio' && (
+        <Paragraph type="warning" style={{color:'#faad14',fontWeight:500}}>
+          已提交语音，本题只能提交语音，文字输入不可用。
+        </Paragraph>
+      )}
+      {answerMode === 'text' && (
+        <Paragraph type="warning" style={{color:'#faad14',fontWeight:500}}>
+          已提交文本，本题只能提交文本，语音录制不可用。
+        </Paragraph>
+      )}
       <Paragraph>
-        请针对当前题目提供您的答案，可以选择文字输入或语音录制：
+        {mode === 'voice' 
+          ? '请针对当前题目录制您的语音答案：'
+          : '请针对当前题目提供您的文字答案：'
+        }
       </Paragraph>
 
-      {/* 输入模式切换 */}
-      <Space style={{ marginBottom: 16 }}>
-        <Button 
-          type={inputMode === 'text' ? 'primary' : 'default'}
-          onClick={() => setInputMode('text')}
-        >
-          文字输入
-        </Button>
-        <Button 
-          type={inputMode === 'voice' ? 'primary' : 'default'}
-          onClick={() => setInputMode('voice')}
-        >
-          语音录制
-        </Button>
-      </Space>
+      {/* 输入模式切换 - 只在基础模式下显示 */}
+      {mode === 'text' && (
+        <Space style={{ marginBottom: 16 }}>
+          <Button 
+            type={inputMode === 'text' ? 'primary' : 'default'}
+            onClick={() => setInputMode('text')}
+            disabled={answerMode === 'audio' || answerMode === 'video'}
+          >文字输入</Button>
+          <Button 
+            type={inputMode === 'voice' ? 'primary' : 'default'}
+            onClick={() => setInputMode('voice')}
+            disabled={answerMode === 'text' || answerMode === 'video'}
+          >语音录制</Button>
+        </Space>
+      )}
 
       {/* 文字输入模式 */}
-      {inputMode === 'text' && (
+      {(inputMode === 'text' || mode === 'text') && (
         <div>
           <TextArea
             rows={6}
@@ -135,12 +187,13 @@ const AnswerRecorder = ({ currentQuestion, onAnswerSubmit, answers }) => {
             value={currentAnswer}
             onChange={handleTextChange}
             style={{ marginBottom: 16 }}
+            disabled={answerMode === 'audio' || answerMode === 'video'}
           />
         </div>
       )}
 
       {/* 语音录制模式 */}
-      {inputMode === 'voice' && (
+      {(inputMode === 'voice' || mode === 'voice') && (
         <div>
           <div style={{ 
             padding: '16px', 
@@ -165,6 +218,7 @@ const AnswerRecorder = ({ currentQuestion, onAnswerSubmit, answers }) => {
                   danger 
                   onClick={stopRecording}
                   style={{ marginTop: 8 }}
+                  disabled={answerMode === 'text' || answerMode === 'video'}
                 >
                   停止录音
                 </Button>
@@ -179,6 +233,7 @@ const AnswerRecorder = ({ currentQuestion, onAnswerSubmit, answers }) => {
                   type="primary" 
                   onClick={startRecording}
                   style={{ marginTop: 8 }}
+                  disabled={answerMode === 'text' || answerMode === 'video'}
                 >
                   开始录音
                 </Button>
@@ -199,23 +254,95 @@ const AnswerRecorder = ({ currentQuestion, onAnswerSubmit, answers }) => {
       )}
 
       {/* 提交按钮 */}
-      <div style={{ textAlign: 'center' }}>
+      <div style={{ textAlign: 'center', marginTop: 16 }}>
         <Button 
           type="primary" 
           size="large"
-          icon={<SendOutlined />}
           onClick={handleSubmit}
-          disabled={!currentAnswer.trim() && !audioUrl}
+          disabled={(!currentAnswer.trim() && !audioUrl) || answerMode === 'video'}
         >
           提交答案
         </Button>
       </div>
 
+      {/* 题目切换按钮 */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+        <Button
+          onClick={onPrevQuestion}
+          disabled={currentQuestionIndex === 0}
+          style={{ marginRight: 16 }}
+        >
+          上一题
+        </Button>
+        <Button
+          type="primary"
+          onClick={onNextQuestion}
+          disabled={currentQuestionIndex === totalQuestions - 1}
+        >
+          下一题
+        </Button>
+      </div>
+
+      {/* 问题导航 */}
+      {false && totalQuestions > 1 && (
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+          <div style={{ marginBottom: 8 }}>
+            <span style={{ color: '#666' }}>
+              题目 {currentQuestionIndex + 1} / {totalQuestions}
+            </span>
+          </div>
+          <Space>
+            <Button 
+              onClick={onPrevQuestion}
+              disabled={currentQuestionIndex === 0}
+            >
+              上一题
+            </Button>
+            <Button 
+              onClick={onNextQuestion}
+              disabled={currentQuestionIndex === totalQuestions - 1}
+            >
+              下一题
+            </Button>
+          </Space>
+          {/* 问题快速导航 */}
+          <div style={{ marginTop: 12 }}>
+            <Space wrap>
+              {Array.from({ length: totalQuestions }, (_, index) => (
+                <Button
+                  key={index}
+                  size="small"
+                  type={index === currentQuestionIndex ? 'primary' : 'default'}
+                  onClick={() => onQuestionSelect(index)}
+                  style={{
+                    minWidth: '40px',
+                    height: '32px',
+                    borderRadius: '16px'
+                  }}
+                >
+                  {index + 1}
+                </Button>
+              ))}
+            </Space>
+          </div>
+        </div>
+      )}
+
       {/* 答案统计 */}
       <div style={{ marginTop: 16, padding: '12px', backgroundColor: '#f6ffed', borderRadius: '4px' }}>
         <Paragraph style={{ margin: 0, color: '#52c41a' }}>
-          已保存答案: {Object.keys(answers).length} / {currentQuestion.totalQuestions || 0}
+          已保存答案: {Object.keys(answers).length} / {totalQuestions} 
+          {Object.keys(answers).length >= totalQuestions && totalQuestions > 0 && ' ✅'}
         </Paragraph>
+        {totalQuestions > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <Progress 
+              percent={Math.round((Object.keys(answers).length / totalQuestions) * 100)} 
+              size="small"
+              status={Object.keys(answers).length >= totalQuestions ? 'success' : 'active'}
+            />
+          </div>
+        )}
       </div>
     </Card>
   );

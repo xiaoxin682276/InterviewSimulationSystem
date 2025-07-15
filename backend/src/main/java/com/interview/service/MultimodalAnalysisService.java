@@ -50,7 +50,7 @@ public class MultimodalAnalysisService {
             
             // 综合评估
             return generateComprehensiveEvaluation(multimodalData.getPosition(), 
-                                                textResults, audioResults, videoResults);
+                                                textResults, audioResults, videoResults, multimodalData);
             
         } catch (Exception e) {
             System.err.println("多模态分析失败: " + e.getMessage());
@@ -179,7 +179,8 @@ public class MultimodalAnalysisService {
     private EnhancedEvaluationResult generateComprehensiveEvaluation(String position,
                                                                   Map<String, Double> textResults,
                                                                   Map<String, Double> audioResults,
-                                                                  Map<String, Double> videoResults) {
+                                                                  Map<String, Double> videoResults,
+                                                                  MultiModalData multimodalData) {
         
         // 整合所有能力指标
         Map<String, Double> coreCompetencies = new HashMap<>();
@@ -200,13 +201,40 @@ public class MultimodalAnalysisService {
         
         // 生成学习路径
         List<EnhancedEvaluationResult.LearningPath> learningPaths = generateLearningPaths(position, coreCompetencies);
-        
+
         // 构建多模态洞察
         Map<String, Object> multimodalInsights = buildMultimodalInsights(textResults, audioResults, videoResults);
-        
-        return new EnhancedEvaluationResult(totalScore, coreCompetencies, 
-                                         new HashMap<>(), keyIssues, 
-                                         improvementSuggestions, overallFeedback);
+
+        // 构建每题分析（只处理前5道题，并发）
+        List<EnhancedEvaluationResult.QuestionAnalysis> questionAnalyses = new ArrayList<>();
+        if (multimodalData != null && multimodalData.getTextData() != null) {
+            List<com.interview.model.MultiModalData.TextData> textDataList = multimodalData.getTextData();
+            int limit = Math.min(5, textDataList.size());
+            List<com.interview.model.MultiModalData.TextData> limitedList = textDataList.subList(0, limit);
+            List<CompletableFuture<EnhancedEvaluationResult.QuestionAnalysis>> futures = new ArrayList<>();
+            for (com.interview.model.MultiModalData.TextData textData : limitedList) {
+                futures.add(CompletableFuture.supplyAsync(() -> {
+                    String question = textData.getQuestion();
+                    String userAnswer = textData.getAnswer();
+                    String prompt = "题目：" + question + "\n用户回答：" + userAnswer;
+                    String analysis = sparkService.analyzeWithSpark(prompt, null);
+                    EnhancedEvaluationResult.QuestionAnalysis qa = new EnhancedEvaluationResult.QuestionAnalysis();
+                    qa.setQuestion(question);
+                    qa.setUserAnswer(userAnswer);
+                    qa.setAnalysis(analysis);
+                    qa.setScore(80.0); // 可根据实际情况打分
+                    return qa;
+                }, executorService));
+            }
+            questionAnalyses = futures.stream().map(CompletableFuture::join).collect(java.util.stream.Collectors.toList());
+        }
+
+        EnhancedEvaluationResult result = new EnhancedEvaluationResult(totalScore, coreCompetencies, 
+            new HashMap<>(), keyIssues, improvementSuggestions, overallFeedback);
+        result.setLearningPaths(learningPaths);
+        result.setMultimodalInsights(multimodalInsights);
+        result.setQuestionAnalyses(questionAnalyses);
+        return result;
     }
     
     // 具体的分析方法实现
