@@ -58,7 +58,7 @@ xunfei:
 # 面部情感识别API配置
 facial:
   api:
-    key: "your_facial_api_key"
+
     url: "https://api.facial-analysis.com/v1/analyze"
 
 # 肢体语言识别API配置

@@ -7,8 +7,8 @@ WORKDIR /app
 # 复制package.json和package-lock.json
 COPY package*.json ./
 
-# 安装依赖
-RUN npm ci --only=production
+# 安装依赖（使用npm install而不是npm ci，更快）
+RUN npm install
 
 # 复制源代码
 COPY . .

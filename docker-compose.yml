@@ -18,6 +18,11 @@ services:
       - ./init-database-fixed.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - interview-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "interview", "-pinterview123"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
 
   # 后端服务
   backend:
@@ -30,13 +35,16 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/interview_system?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/interview_system?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=false
       - SPRING_DATASOURCE_USERNAME=interview
       - SPRING_DATASOURCE_PASSWORD=interview123
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_JPA_SHOW_SQL=false
+      - SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT=30000
+      - SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=10
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     networks:
       - interview-network
 

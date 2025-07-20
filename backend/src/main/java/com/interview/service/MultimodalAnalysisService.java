@@ -17,8 +17,7 @@ public class MultimodalAnalysisService {
     @Autowired
     private XunfeiSparkService sparkService;
     
-    @Autowired
-    private FacialEmotionService facialEmotionService;
+    // 已移除FacialEmotionService
     
     @Autowired
     private BodyLanguageService bodyLanguageService;
@@ -60,46 +59,11 @@ public class MultimodalAnalysisService {
     
     /**
      * 执行增强的多模态分析（包含面部情感和肢体语言）
+     * 现在做成空壳，返回默认值
      */
-    public EnhancedEvaluationResult analyzeEnhancedMultimodalData(MultiModalData multimodalData, 
-                                                                MultipartFile videoFile) {
-        try {
-            // 并行处理所有类型的分析
-            CompletableFuture<Map<String, Double>> textAnalysis = 
-                CompletableFuture.supplyAsync(() -> analyzeTextData(multimodalData.getTextData()), executorService);
-            
-            CompletableFuture<Map<String, Double>> audioAnalysis = 
-                CompletableFuture.supplyAsync(() -> analyzeAudioData(multimodalData.getAudioData()), executorService);
-            
-            CompletableFuture<Map<String, Double>> videoAnalysis = 
-                CompletableFuture.supplyAsync(() -> analyzeVideoData(multimodalData.getVideoData()), executorService);
-            
-            CompletableFuture<Map<String, Object>> facialAnalysis = 
-                CompletableFuture.supplyAsync(() -> analyzeFacialData(videoFile), executorService);
-            
-            CompletableFuture<Map<String, Object>> bodyLanguageAnalysis = 
-                CompletableFuture.supplyAsync(() -> analyzeBodyLanguageData(videoFile), executorService);
-            
-            // 等待所有分析完成
-            CompletableFuture.allOf(textAnalysis, audioAnalysis, videoAnalysis, 
-                                  facialAnalysis, bodyLanguageAnalysis).join();
-            
-            // 整合分析结果
-            Map<String, Double> textResults = textAnalysis.get();
-            Map<String, Double> audioResults = audioAnalysis.get();
-            Map<String, Double> videoResults = videoAnalysis.get();
-            Map<String, Object> facialResults = facialAnalysis.get();
-            Map<String, Object> bodyLanguageResults = bodyLanguageAnalysis.get();
-            
-            // 综合评估
-            return generateEnhancedComprehensiveEvaluation(multimodalData.getPosition(), 
-                                                        textResults, audioResults, videoResults,
-                                                        facialResults, bodyLanguageResults);
-            
-        } catch (Exception e) {
-            System.err.println("增强多模态分析失败: " + e.getMessage());
-            return generateDefaultEvaluation();
-        }
+    public EnhancedEvaluationResult analyzeEnhancedMultimodalData(MultiModalData multimodalData, MultipartFile videoFile) {
+        // 只做基础分析，视频分析部分返回默认值
+        return analyzeMultimodalData(multimodalData);
     }
     
     /**
@@ -453,15 +417,15 @@ public class MultimodalAnalysisService {
             Map<String, Object> facialResults = new HashMap<>();
             
             // 分析面部情感
-            Map<String, Object> emotionAnalysis = facialEmotionService.analyzeFacialEmotion(videoFile);
+            Map<String, Object> emotionAnalysis = new HashMap<>(); // 返回默认值
             facialResults.put("emotion", emotionAnalysis);
             
             // 分析面部表情
-            Map<String, Object> expressionAnalysis = facialEmotionService.analyzeFacialExpressions(videoFile);
+            Map<String, Object> expressionAnalysis = new HashMap<>(); // 返回默认值
             facialResults.put("expression", expressionAnalysis);
             
             // 分析眼神交流
-            Map<String, Object> eyeContactAnalysis = facialEmotionService.analyzeEyeContact(videoFile);
+            Map<String, Object> eyeContactAnalysis = new HashMap<>(); // 返回默认值
             facialResults.put("eyeContact", eyeContactAnalysis);
             
             return facialResults;
