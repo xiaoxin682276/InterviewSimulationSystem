@@ -1,5 +1,5 @@
 # 使用多阶段构建
-FROM maven:3.8.4-openjdk-21 AS build
+FROM maven:3.9.6-eclipse-temurin-21 AS build
 
 # 设置工作目录
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # 运行阶段
-FROM openjdk:21-jre-slim
+FROM eclipse-temurin:21-jre-alpine
 
 # 设置工作目录
 WORKDIR /app
