@@ -19,6 +19,7 @@ import VideoRecorder from './components/VideoRecorder';
 import RadarChart from './components/RadarChart';
 import FeedbackPanel from './components/FeedbackPanel';
 import EnhancedFeedbackPanel from './components/EnhancedFeedbackPanel';
+import Profile from './components/Profile';
 import { interviewAPI } from './api';
 
 const { Header, Content, Footer } = Layout;
@@ -38,6 +39,7 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentApiSource, setCurrentApiSource] = useState('默认题库');
+  const [showProfile, setShowProfile] = useState(false);
 
   // 检查用户登录状态
   useEffect(() => {
@@ -432,7 +434,7 @@ const App = () => {
   // 用户菜单
   const userMenu = (
     <Menu>
-      <Menu.Item key="profile" icon={<UserOutlined />}>
+      <Menu.Item key="profile" icon={<UserOutlined />} onClick={() => setShowProfile(true)}>
         个人信息
       </Menu.Item>
       <Menu.Divider />
@@ -480,17 +482,23 @@ const App = () => {
 
       <Content style={{ padding: '20px', background: '#f5f5f5' }}>
         <div className="container">
-          {/* 步骤指示器 */}
-          <div style={{ marginBottom: '30px' }}>
-            <Steps 
-              current={currentStep} 
-              items={steps}
-              style={{ background: '#fff', padding: '20px', borderRadius: '8px' }}
-            />
-          </div>
+          {showProfile ? (
+            <Profile user={user} onBack={() => setShowProfile(false)} />
+          ) : (
+            <>
+              {/* 步骤指示器 */}
+              <div style={{ marginBottom: '30px' }}>
+                <Steps 
+                  current={currentStep} 
+                  items={steps}
+                  style={{ background: '#fff', padding: '20px', borderRadius: '8px' }}
+                />
+              </div>
 
-          {/* 主要内容 */}
-          {renderStepContent()}
+              {/* 主要内容 */}
+              {renderStepContent()}
+            </>
+          )}
         </div>
       </Content>
 
