@@ -1,28 +1,31 @@
+# application-prod.yml
+
 spring:
+  profiles:
+    # 这里会先加载 application.yml，再加载本文件中的覆盖项
+    include: default
+
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/interview_system?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/interview?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
     username: ${SPRING_DATASOURCE_USERNAME:interview}
     password: ${SPRING_DATASOURCE_PASSWORD:interview123}
     driver-class-name: com.mysql.cj.jdbc.Driver
-  
+
   jpa:
     hibernate:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
     show-sql: ${SPRING_JPA_SHOW_SQL:false}
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        # Hibernate8 已废弃 MySQL8Dialect，推荐使用通用 MySQLDialect
+        dialect: org.hibernate.dialect.MySQLDialect
         format_sql: false
-  
-  servlet:
-    multipart:
-      max-file-size: 100MB
-      max-request-size: 100MB
 
 server:
   port: 8080
-  servlet:
-    context-path: /api
+  # 去掉下面这一行，Spring Boot 默认 context-path 是根路径
+  # servlet:
+  #   context-path: /api
 
 logging:
   level:
@@ -32,8 +35,8 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
-# 跨域配置
+# 跨域配置（如果配合 CorsConfigurationSource 生效）
 cors:
   allowed-origins: "*"
   allowed-methods: "*"
-  allowed-headers: "*" 
+  allowed-headers: "*"

@@ -486,17 +486,17 @@ const App = () => {
             <Profile user={user} onBack={() => setShowProfile(false)} />
           ) : (
             <>
-              {/* 步骤指示器 */}
-              <div style={{ marginBottom: '30px' }}>
-                <Steps 
-                  current={currentStep} 
-                  items={steps}
-                  style={{ background: '#fff', padding: '20px', borderRadius: '8px' }}
-                />
-              </div>
+          {/* 步骤指示器 */}
+          <div style={{ marginBottom: '30px' }}>
+            <Steps 
+              current={currentStep} 
+              items={steps}
+              style={{ background: '#fff', padding: '20px', borderRadius: '8px' }}
+            />
+          </div>
 
-              {/* 主要内容 */}
-              {renderStepContent()}
+          {/* 主要内容 */}
+          {renderStepContent()}
             </>
           )}
         </div>
@@ -507,7 +507,7 @@ const App = () => {
         background: '#fff',
         borderTop: '1px solid #e8e8e8'
       }}>
-        智能面试模拟系统 ©2024 帮助求职者提升面试技能
+        智能面试模拟系统 ©2025 帮助求职者提升面试技能
       </Footer>
     </Layout>
   );
